@@ -11,27 +11,46 @@ const prisma = new PrismaClient();
 
 const PORT = 8080;
 
-const users = [
-  { id: 1, username: "genta", password: "password" }, // 仮のユーザー
-];
-
 const SECRET_KEY = "your_secret_key";
 
-// 🔹 ログイン API
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find(
-    (u) => u.username === username && u.password === password
-  );
+app.post("/createUser", async (req: Request, res: Response) => {
+  try {
+    const { username, password } = req.body;
+    const createUser = await prisma.user.create({
+      data: {
+        username,
+        password,
+      },
+    });
+    return res.json(createUser);
+  } catch (e) {
+    return res.status(400).json(e);
+  }
+});
 
-  if (!user)
+app.get("/allUsers", async (req: Request, res: Response) => {
+  const allUsers = await prisma.user.findMany();
+  return res.json(allUsers);
+});
+
+// 🔹 ログイン API
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = await prisma.user.findUnique({
+    where: { username },
+  });
+
+  if (!user || user.password !== password) {
     return res
       .status(401)
       .json({ message: "ユーザ名もしくはパスワードが異なります。" });
+  }
 
   const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, {
     expiresIn: "1h",
   });
+
   res.json({ token });
 });
 
